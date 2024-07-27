@@ -1,0 +1,7 @@
+requests
+beautifulsoup4
+requests_html
+lxml[html_clean]
+aiohttp
+tqdm
+colorama

@@ -124,7 +124,7 @@ class MovieScraper(BaseScraper):
         search_url = f"{self.base_url}/s/{quote(search_query)}"
         
         async with aiohttp.ClientSession() as session:
-            soup = await self.fetch_page(session, search_url)
+            soup = await self.fetch_page_with_verification(session, search_url)
             if not soup:
                 logging.error(f"Failed to fetch search results page: {search_url}")
                 return
@@ -147,7 +147,7 @@ class MovieScraper(BaseScraper):
                     break
                 print(f"{Fore.RED}Invalid choice. Please try again.{Style.RESET_ALL}")
 
-            movie_soup = await self.fetch_page(session, selected_movie['url'])
+            movie_soup = await self.fetch_page_with_verification(session, selected_movie['url'])
             if not movie_soup:
                 logging.error(f"Failed to fetch movie page: {selected_movie['url']}")
                 return

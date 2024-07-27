@@ -35,7 +35,7 @@ class AnimeScraper(BaseScraper):
         return links
 
     async def navigate_folders(self, session, url, path_so_far=[]):
-        soup = await self.fetch_page(session, url)
+        soup = await self.fetch_page_with_verification(session, url)
         if not soup:
             logging.error(f"Failed to fetch page: {url}")
             return None
@@ -66,7 +66,7 @@ class AnimeScraper(BaseScraper):
             print(f"{Fore.RED}Invalid choice. Please try again.{Style.RESET_ALL}")
 
     async def download_folder(self, session, url, folder_path, concurrency):
-        soup = await self.fetch_page(session, url)
+        soup = await self.fetch_page_with_verification(session, url)
         if not soup:
             logging.error(f"Failed to fetch folder page: {url}")
             return
@@ -99,7 +99,10 @@ class AnimeScraper(BaseScraper):
         expected_size = await self.get_file_size(session, url)
         result = await download_file(session, url, path, expected_size)
         if result:
+            downloaded_path, download_time, speed_mbps = result
             print(f"{Fore.GREEN}Successfully downloaded: {os.path.basename(path)}{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}Download time: {download_time:.2f} seconds{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}Average speed: {speed_mbps:.2f} MB/s{Style.RESET_ALL}")
         else:
             print(f"{Fore.RED}Failed to download: {os.path.basename(path)}{Style.RESET_ALL}")
 
@@ -112,22 +115,11 @@ class AnimeScraper(BaseScraper):
             logging.error(f"Error fetching file size: {e}")
         return 0
 
-    async def download_file(self, session, url, path):
-        expected_size = await self.get_file_size(session, url)
-        result = await download_file(session, url, path, expected_size)
-        if result:
-            downloaded_path, download_time, speed_mbps = result
-            print(f"{Fore.GREEN}Successfully downloaded: {os.path.basename(path)}{Style.RESET_ALL}")
-            print(f"{Fore.GREEN}Download time: {download_time:.2f} seconds{Style.RESET_ALL}")
-            print(f"{Fore.GREEN}Average speed: {speed_mbps:.2f} MB/s{Style.RESET_ALL}")
-        else:
-            print(f"{Fore.RED}Failed to download: {os.path.basename(path)}{Style.RESET_ALL}")
-
     async def search_and_download(self, search_query, concurrency=1):
         search_url = f"{self.base_url}/s/{quote(search_query)}"
         
         async with aiohttp.ClientSession() as session:
-            soup = await self.fetch_page(session, search_url)
+            soup = await self.fetch_page_with_verification(session, search_url)
             if not soup:
                 logging.error(f"Failed to fetch search results page: {search_url}")
                 return
@@ -191,34 +183,3 @@ class AnimeScraper(BaseScraper):
                     break
 
         print(f"{Fore.GREEN}Download process completed.{Style.RESET_ALL}")
-
-    async def download_file_with_semaphore(self, session, url, path, semaphore):
-        async with semaphore:
-            await self.download_file(session, url, path)
-
-    async def download_folder(self, session, url, folder_path, concurrency):
-        soup = await self.fetch_page(session, url)
-        if not soup:
-            logging.error(f"Failed to fetch folder page: {url}")
-            return
-
-        files = self.extract_file_links(soup)
-        links = self.extract_links(soup)
-
-        os.makedirs(folder_path, exist_ok=True)
-
-        # Download subfolders recursively
-        subfolder_tasks = [
-            self.download_folder(session, link['url'], os.path.join(folder_path, self.sanitize_filename(link['name'])), concurrency)
-            for link in links
-        ]
-        await asyncio.gather(*subfolder_tasks)
-
-        # Download files in the current folder
-        if files:
-            semaphore = asyncio.Semaphore(concurrency)
-            download_tasks = [
-                self.download_file_with_semaphore(session, file['url'], os.path.join(folder_path, self.sanitize_filename(file['name'])), semaphore)
-                for file in files
-            ]
-            await asyncio.gather(*download_tasks)

@@ -125,7 +125,7 @@ class TVShowScraper(BaseScraper):
         search_url = f"{self.base_url}/s/{quote(search_query)}"
         
         async with aiohttp.ClientSession() as session:
-            soup = await self.fetch_page(session, search_url)
+            soup = await self.fetch_page_with_verification(session, search_url)
             if not soup:
                 logging.error(f"Failed to fetch search results page: {search_url}")
                 return
@@ -148,7 +148,7 @@ class TVShowScraper(BaseScraper):
                     break
                 print(f"{Fore.RED}Invalid choice. Please try again.{Style.RESET_ALL}")
 
-            show_soup = await self.fetch_page(session, selected_show['url'])
+            show_soup = await self.fetch_page_with_verification(session, selected_show['url'])
             if not show_soup:
                 logging.error(f"Failed to fetch TV show page: {selected_show['url']}")
                 return
@@ -176,7 +176,7 @@ class TVShowScraper(BaseScraper):
                 if terminate:
                     break
                 
-                season_soup = await self.fetch_page(session, season['url'])
+                season_soup = await self.fetch_page_with_verification(session, season['url'])
                 if not season_soup:
                     logging.error(f"Failed to fetch season page: {season['url']}")
                     continue

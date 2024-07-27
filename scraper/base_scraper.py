@@ -8,7 +8,11 @@ import logging
 import json
 import time
 from colorama import Fore, Style
-from file_downloader import download_file, terminate
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 class BaseScraper:
     def __init__(self, base_url, download_dir, headers=None, max_workers=5):
@@ -20,6 +24,7 @@ class BaseScraper:
         self.max_workers = max_workers
         self.history_file = os.path.join(self.download_dir, 'download_history.json')
         self.init_history_file()
+        self.driver = None
 
     def init_history_file(self):
         if not os.path.exists(self.history_file):
@@ -95,6 +100,16 @@ class BaseScraper:
                             print(f"        Download time: {episode_data['download_time']:.2f} seconds")
                             print(f"        Speed: {episode_data['speed_mbps']:.2f} MB/s")
 
+    def handle_human_verification(self, url):
+        if not self.driver:
+            self.driver = webdriver.Chrome()  # or another driver like webdriver.Firefox()
+        
+        self.driver.get(url)
+        print(f"{Fore.YELLOW}Please complete the human verification in the browser window and press Enter here to continue...{Style.RESET_ALL}")
+        input()
+        page_source = self.driver.page_source
+        return BeautifulSoup(page_source, 'html.parser')
+
     # To be implemented by subclasses
     def extract_links(self, soup):
         raise NotImplementedError
@@ -110,3 +125,9 @@ class BaseScraper:
     # To be implemented by subclasses
     async def search_and_download(self, search_query):
         raise NotImplementedError
+
+    async def fetch_page_with_verification(self, session, url, retries=3):
+        soup = await self.fetch_page(session, url, retries)
+        if soup and "human verification" in str(soup).lower():  # Adjust condition to detect when verification is needed
+            soup = self.handle_human_verification(url)
+        return soup
